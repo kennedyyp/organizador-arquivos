@@ -4,8 +4,8 @@ Automação local em Python para organizar arquivos no Debian 13.
 
 ## Estado do projeto
 
-Primeira versão de execução manual, com simulação por padrão e testes automatizados.
-Ainda não há agendamento ou monitoramento contínuo.
+Versão com execução manual e agendamento semanal opcional, simulação por padrão
+e testes automatizados. Não há monitoramento contínuo.
 
 ## Objetivo
 
@@ -91,6 +91,74 @@ Arquivos alterados desde a movimentação e origens ocupadas são ignorados.
 Pastas vazias e registros são mantidos. Os registros contêm caminhos locais:
 não os publique no GitHub. Não execute duas instâncias simultâneas nem edite
 manualmente os registros.
+
+## Agendamento semanal no Debian
+
+O timer executa aos domingos às 10h no fuso configurado no computador, com
+tolerância de um minuto. Não requer bibliotecas novas nem sudo. O instalador
+usa caminhos absolutos para o projeto, o Python da `.venv` e a pasta escolhida.
+
+Na pasta do projeto, confira primeiro a prévia das unidades:
+
+```bash
+.venv/bin/python configurar_agendamento.py "$HOME/Downloads"
+```
+
+Depois de conferir a pasta e o horário, instale e ative:
+
+```bash
+.venv/bin/python configurar_agendamento.py "$HOME/Downloads" --instalar
+```
+
+São criados `organizador-arquivos.service` e `organizador-arquivos.timer` em
+`~/.config/systemd/user/`. O serviço roda com seu usuário, usando `--aplicar`
+e intervalo de estabilidade de 5 segundos. Não ativa organização na instalação
+normal do projeto: apenas o comando com `--instalar` habilita o timer.
+
+`Persistent=true` recupera uma execução perdida quando o gerenciador do usuário
+voltar a iniciar (normalmente no login). Isso pode mover arquivos logo após
+ativar um timer que já tinha execução pendente. Não liga o notebook desligado,
+não garante execução sem sessão e não ativa linger. Não espere várias execuções
+para cada semana perdida: elas são recuperadas em uma ativação.
+
+Confira o próximo horário e o fuso:
+
+```bash
+timedatectl
+systemctl --user list-timers organizador-arquivos.timer --all
+```
+
+Consulte o histórico e possíveis falhas:
+
+```bash
+journalctl --user -u organizador-arquivos.service -n 50 --no-pager
+```
+
+Antes da primeira execução, é normal não haver logs. Eles podem conter nomes e
+caminhos pessoais: mantenha-os locais. Uma falha de movimentação resulta em saída
+diferente de zero para o systemd; não há notificação nem repetição automática.
+
+Para desativar futuras execuções (não desfaz movimentações já feitas):
+
+```bash
+systemctl --user disable --now organizador-arquivos.timer
+```
+
+Não mova a pasta do projeto depois de instalar o agendamento. Se quiser alterar
+o horário, use `systemctl --user edit organizador-arquivos.timer` e adicione:
+
+```ini
+[Timer]
+OnCalendar=
+OnCalendar=Sun *-*-* 10:00:00
+```
+
+Substitua o dia e horário desejados. A linha vazia limpa o calendário anterior.
+Depois aplique com `systemctl --user daemon-reload` e
+`systemctl --user restart organizador-arquivos.timer`, e confira `list-timers`.
+O instalador não substitui unidades existentes com conteúdo diferente.
+
+Referência: [documentação oficial do systemd 257](https://www.freedesktop.org/software/systemd/man/257/systemd.timer.html).
 
 ## Cuidados de versionamento
 

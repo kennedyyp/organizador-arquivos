@@ -31,6 +31,15 @@ class OrganizadorTests(unittest.TestCase):
         self.organizar(False)
         self.assertEqual([p.name for p in self.pasta.iterdir()], ['foto.png'])
 
+    def test_falha_de_movimentacao_e_reportada_sem_perder_origem(self):
+        self.arquivo('relatorio.pdf', b'preservar')
+        with patch('organizador.time.sleep'), patch('organizador.os.link',
+                side_effect=OSError('falha simulada')):
+            falhas = organizador.organizar(self.pasta, True)
+        self.assertEqual(falhas, 1)
+        self.assertEqual((self.pasta / 'relatorio.pdf').read_bytes(), b'preservar')
+        self.assertFalse((self.pasta / 'PDFs/relatorio.pdf').exists())
+
     def test_colisao_preserva_ambos_e_desfazer_restaura(self):
         self.arquivo('foto.png', b'nova')
         (self.pasta / 'Imagens').mkdir()

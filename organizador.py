@@ -44,6 +44,7 @@ def assinatura(caminho):
 
 
 def organizar(pasta, aplicar, estabilidade=2):
+    falhas = 0
     movimentos = []
     reservados = set()
     candidatos = {}
@@ -84,10 +85,10 @@ def organizar(pasta, aplicar, estabilidade=2):
         for origem, destino, inicial in movimentos:
             print(f'{origem.name} -> {destino.relative_to(pasta)}')
         print(f'\nSimulação: {len(movimentos)} arquivo(s). Nada foi alterado.')
-        return
+        return 0
     if not movimentos:
         print('Nenhum arquivo para organizar.')
-        return
+        return 0
     registro = pasta / '.organizador-registros'
     if registro.is_symlink():
         raise ValueError('A pasta de registros não pode ser um link simbólico.')
@@ -109,8 +110,10 @@ def organizar(pasta, aplicar, estabilidade=2):
                 mover_sem_sobrescrever(origem, destino)
                 print(f'MOVIDO: {origem.name} -> {destino.relative_to(pasta)}')
             except (OSError, ValueError) as erro:
+                falhas += 1
                 print(f'ERRO: {origem.name}: {erro}')
     print(f'\nRegistro para desfazer: {diario}')
+    return falhas
 
 
 def desfazer(diario, aplicar):
@@ -154,7 +157,9 @@ def main():
             pasta = args.pasta.expanduser().resolve(strict=True)
             if not pasta.is_dir():
                 parser.error('Informe uma pasta.')
-            organizar(pasta, args.aplicar, args.estabilidade)
+            falhas = organizar(pasta, args.aplicar, args.estabilidade)
+            if falhas:
+                parser.exit(1, f'Execução terminou com {falhas} falha(s). Consulte os registros.\n')
         else:
             parser.error('Informe a pasta que deseja organizar.')
     except (OSError, ValueError, KeyError) as erro:
